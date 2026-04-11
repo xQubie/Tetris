@@ -35,7 +35,12 @@
       --lcd-face: #889674;
       --cell-empty: rgba(38, 42, 32, 0.4);
       --cell-line: rgba(55, 62, 48, 0.65);
-      --block: #1c1c1c;
+      --block: #343b38;
+      --block-lit: #424a46;
+      --block-dark: #252a28;
+      --block-border: rgba(10, 12, 11, 0.5);
+      --block-inset-hi: rgba(255, 255, 255, 0.16);
+      --block-inset-lo: rgba(0, 0, 0, 0.42);
       --block-hi: #d8dcc8;
       --ink: #14180f;
       --label: rgba(20, 24, 15, 0.72);
@@ -208,10 +213,18 @@
     .piece-block {
       position: absolute;
       box-sizing: border-box;
-      background: var(--block);
-      border: 1px solid #0a0a0a;
-      border-radius: 1px;
-      box-shadow: none;
+      background: linear-gradient(
+        152deg,
+        var(--block-lit) 0%,
+        var(--block) 42%,
+        var(--block-dark) 100%
+      );
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      border-radius: 2px;
+      box-shadow:
+        inset 1px 1px 0 var(--block-inset-hi),
+        inset -1px -1px 0 var(--block-inset-lo),
+        0 1px 2px rgba(0, 0, 0, 0.22);
     }
 
     .board {
@@ -246,9 +259,24 @@
     }
 
     .cell.filled {
-      background: var(--block);
-      border-right-color: #0a0a0a;
-      border-bottom-color: #0a0a0a;
+      background: linear-gradient(
+        152deg,
+        var(--block-lit) 0%,
+        var(--block) 42%,
+        var(--block-dark) 100%
+      );
+      border-right-color: var(--block-border);
+      border-bottom-color: var(--block-border);
+      box-shadow:
+        inset 1px 1px 0 var(--block-inset-hi),
+        inset -1px -1px 0 var(--block-inset-lo);
+    }
+
+    .cell.filled.line-clearing {
+      box-shadow:
+        inset 1px 1px 0 rgba(255, 255, 255, 0.1),
+        inset -1px -1px 0 rgba(0, 0, 0, 0.32),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.22);
     }
 
     .sidebar {
@@ -349,9 +377,17 @@
     }
 
     .next-grid .ncell.on {
-      background: var(--block);
-      border-right-color: #0a0a0a;
-      border-bottom-color: #0a0a0a;
+      background: linear-gradient(
+        152deg,
+        var(--block-lit) 0%,
+        var(--block) 42%,
+        var(--block-dark) 100%
+      );
+      border-right-color: var(--block-border);
+      border-bottom-color: var(--block-border);
+      box-shadow:
+        inset 1px 1px 0 var(--block-inset-hi),
+        inset -1px -1px 0 var(--block-inset-lo);
     }
 
     .pause-zone {
@@ -606,6 +642,8 @@
       /** Минимальный интервал между строками при зажатом ускорении (↓ / тач-пад). Меньше — быстрее soft drop. */
       const SOFT_DROP_INTERVAL_MS = 28;
       const PIECE_BLOCK_COUNT = 4;
+      /** Длительность анимации исчезновения заполненных линий перед удалением из сетки. */
+      const LINE_CLEAR_DURATION_MS = 420;
 
       function setupWindowDrag() {
         const gadget = document.getElementById("gadget");
@@ -774,6 +812,8 @@
       /** Первый экран после запуска: нет партии — «Продолжить» недоступно. */
       let bootMenuActive = true;
       let fallAnim = null;
+      /** Анимация очистки линий: { rows: number[], elapsed, duration } */
+      let lineClearAnim = null;
       /** Ускоренное падение, пока зажата стрелка вниз (классический soft drop). */
       let softDropHeld = false;
       /** После появления новой фигуры игнорируем автоповтор ↓, пока не будет «свежего» keydown. */
@@ -979,12 +1019,36 @@
       function afterMergeAndMaybeClear() {
         current = null;
         fallAnim = null;
-        let rows = findFullRows();
-        while (rows.length > 0) {
-          finalizeLineClear(rows);
-          rows = findFullRows();
+        dropAccum = 0;
+        const rows = findFullRows();
+        if (rows.length) {
+          lineClearAnim = {
+            rows,
+            elapsed: 0,
+            duration: LINE_CLEAR_DURATION_MS,
+          };
+        } else {
+          spawn();
         }
-        spawn();
+      }
+
+      function updateLineClearAnim(dt) {
+        if (!lineClearAnim || paused || gameOver) return;
+        lineClearAnim.elapsed += dt;
+        if (lineClearAnim.elapsed < lineClearAnim.duration) return;
+        const rows = lineClearAnim.rows;
+        lineClearAnim = null;
+        finalizeLineClear(rows);
+        const more = findFullRows();
+        if (more.length) {
+          lineClearAnim = {
+            rows: more,
+            elapsed: 0,
+            duration: LINE_CLEAR_DURATION_MS,
+          };
+        } else {
+          spawn();
+        }
       }
 
       function lockPieceRowFromAnim() {
@@ -1005,6 +1069,7 @@
       function tickDrop() {
         if (
           fallAnim ||
+          lineClearAnim ||
           !current ||
           gameOver ||
           paused
@@ -1082,13 +1147,38 @@
       }
 
       function renderBoard(now) {
+        const clearingSet =
+          lineClearAnim && lineClearAnim.rows.length
+            ? new Set(lineClearAnim.rows)
+            : null;
+        const clearT =
+          lineClearAnim && lineClearAnim.duration > 0
+            ? Math.min(1, lineClearAnim.elapsed / lineClearAnim.duration)
+            : 0;
+        const clearEase = clearT * clearT;
+
         for (let r = 0; r < ROWS; r++) {
           for (let c = 0; c < COLS; c++) {
             const i = r * COLS + c;
             const el = cells[i];
-            el.classList.remove("filled");
+            el.classList.remove("filled", "line-clearing");
+            el.style.opacity = "";
+            el.style.transform = "";
+            el.style.transformOrigin = "";
             if (grid[r][c]) {
               el.classList.add("filled");
+            }
+            if (
+              clearingSet &&
+              clearingSet.has(r) &&
+              grid[r][c]
+            ) {
+              el.classList.add("line-clearing");
+              const op = 1 - 0.92 * clearEase;
+              const sy = 1 - 0.88 * clearEase;
+              el.style.opacity = String(op);
+              el.style.transform = `scaleY(${sy})`;
+              el.style.transformOrigin = "50% 100%";
             }
           }
         }
@@ -1187,11 +1277,12 @@
         if (!paused && !gameOver) {
           playMs += dt;
           updateFallAnim(now);
-          if (!fallAnim) {
+          updateLineClearAnim(dt);
+          if (!fallAnim && !lineClearAnim) {
             dropAccum += dt;
             const interval = dropIntervalMs();
             while (dropAccum >= interval) {
-              if (fallAnim) break;
+              if (fallAnim || lineClearAnim) break;
               dropAccum -= interval;
               tickDrop();
             }
@@ -1260,6 +1351,7 @@
         shownLines = NaN;
         lastTimeUiMs = 0;
         fallAnim = null;
+        lineClearAnim = null;
         grid = emptyGrid();
         bag = [];
         score = 0;
@@ -1290,6 +1382,7 @@
         shownLines = NaN;
         lastTimeUiMs = 0;
         fallAnim = null;
+        lineClearAnim = null;
         if (paused) {
           totalPausedMs += performance.now() - pauseSessionStart;
         }
@@ -1326,6 +1419,7 @@
         shownLines = NaN;
         lastTimeUiMs = 0;
         fallAnim = null;
+        lineClearAnim = null;
         grid = emptyGrid();
         bag = [];
         score = 0;
