@@ -7,6 +7,17 @@
     content="width=device-width, initial-scale=1, viewport-fit=cover"
   />
   <title>Тетрис</title>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var embed =
+        typeof qt !== "undefined" &&
+        qt &&
+        qt.webChannelTransport;
+      root.classList.toggle("page-embed", !!embed);
+      root.classList.toggle("page-browser", !embed);
+    })();
+  </script>
   <style>
     /* DSEG7 Classic — OFL 1.1, Keshikan / fontsource */
     @font-face {
@@ -41,8 +52,9 @@
       box-sizing: border-box;
     }
 
-    html,
-    body {
+    /* Встроенное окно (Qt / Py): фиксированный размер, прозрачный фон */
+    html.page-embed,
+    html.page-embed body {
       width: 414px;
       height: 576px;
       margin: 0;
@@ -50,16 +62,29 @@
       background: transparent !important;
     }
 
+    /* Обычный браузер: на весь экран, тёмно-серый фон, игра по центру */
+    html.page-browser,
+    html.page-browser body {
+      width: 100%;
+      min-width: 320px;
+      min-height: 100dvh;
+      height: auto;
+      margin: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: #36393e !important;
+    }
+
     @media (max-width: 480px) {
-      html,
-      body {
+      html.page-browser,
+      html.page-browser body {
         width: 100%;
         max-width: 100%;
         height: auto;
         min-height: 100dvh;
       }
 
-      body {
+      html.page-browser body {
         padding: 12px;
       }
     }
@@ -74,6 +99,10 @@
       color: var(--ink);
       user-select: none;
       -webkit-font-smoothing: antialiased;
+    }
+
+    html.page-browser .gadget {
+      cursor: default;
     }
 
     /* Фокус сюда — иначе Chromium/WebEngine забирает стрелки под прокрутку / фокус кнопок */
@@ -325,30 +354,59 @@
       border-bottom-color: #0a0a0a;
     }
 
-    .footer-row {
+    .pause-zone {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      width: 100%;
+      margin: 0;
       margin-top: auto;
-      padding-top: 8px;
+      padding: 8px 2px 2px;
+      border: none;
       border-top: 1px solid rgba(0, 0, 0, 0.14);
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      border-radius: 8px;
       font-variant-numeric: tabular-nums;
       font-size: 14px;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .footer-row .pause-icon {
+    .pause-zone:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .pause-zone:focus-visible {
+      outline: 2px solid rgba(255, 255, 255, 0.35);
+      outline-offset: 1px;
+    }
+
+    .pause-zone:active {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .pause-zone .pause-icon {
       font-family: var(--font-label);
       font-size: 17px;
       letter-spacing: -3px;
       opacity: 0.85;
       font-weight: 700;
+      pointer-events: none;
     }
 
-    .footer-row .lcd-time {
+    .pause-zone:hover .pause-icon {
+      opacity: 1;
+    }
+
+    .pause-zone .lcd-time {
       font-family: var(--font-lcd);
       font-weight: 400;
       font-size: 16px;
       letter-spacing: 0.04em;
+      pointer-events: none;
     }
 
     .modal {
@@ -493,10 +551,15 @@
         <label>Прошло</label>
         <span class="value stat-time" id="elapsed">00:00</span>
       </div>
-      <div class="footer-row">
+      <button
+        type="button"
+        class="pause-zone"
+        id="pauseZone"
+        aria-label="Пауза: открыть или закрыть меню"
+      >
         <span class="pause-icon" id="pauseGlyph">‖</span>
         <span class="lcd-time" id="pausedTime">00:00</span>
-      </div>
+      </button>
     </div>
     </div>
     <div class="touch-pad" id="touchPad">
@@ -525,6 +588,16 @@
 
   <script>
     (function () {
+      function syncPageLayoutMode() {
+        const root = document.documentElement;
+        const embed =
+          typeof qt !== "undefined" &&
+          qt &&
+          qt.webChannelTransport;
+        root.classList.toggle("page-embed", !!embed);
+        root.classList.toggle("page-browser", !embed);
+      }
+
       const COLS = 10;
       const ROWS = 20;
       const LINES_PER_LEVEL = 10;
@@ -576,10 +649,12 @@
           !qt.webChannelTransport
         ) {
           setupWindowDrag();
+          syncPageLayoutMode();
           return;
         }
         new QWebChannel(qt.webChannelTransport, function (channel) {
           window.pyTetris = channel.objects.tetris;
+          syncPageLayoutMode();
           setupWindowDrag();
           const py = window.pyTetris;
           if (py && typeof py.readBest === "function") {
@@ -1154,6 +1229,16 @@
 
       function togglePause() {
         setPaused(!paused);
+      }
+
+      const pauseZone = document.getElementById("pauseZone");
+      if (pauseZone) {
+        pauseZone.addEventListener("click", function () {
+          if (gameOver) return;
+          if (bootMenuActive) return;
+          if (paused) setPaused(false);
+          else setPaused(true);
+        });
       }
 
       /** Первый запуск: меню паузы, поле пустое, «Продолжить» выключено. */
