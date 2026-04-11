@@ -776,6 +776,10 @@
       let fallAnim = null;
       /** Ускоренное падение, пока зажата стрелка вниз (классический soft drop). */
       let softDropHeld = false;
+      /** После появления новой фигуры игнорируем автоповтор ↓, пока не будет «свежего» keydown. */
+      let softDropKeyNeedsNonRepeat = false;
+      /** Состояние тач-пада (spawn сбрасывает софт-дроп только для текущего жеста «вниз»). */
+      let padState = null;
 
       const gameRoot = document.getElementById("gameRoot");
       const boardEl = document.getElementById("board");
@@ -853,6 +857,11 @@
 
       function spawn() {
         fallAnim = null;
+        softDropHeld = false;
+        softDropKeyNeedsNonRepeat = true;
+        if (padState && padState.mode === "soft") {
+          padState.softMutedUntilLift = true;
+        }
         const id = nextId;
         nextId = nextFromBag();
         const rots = ROTATIONS[id];
@@ -1392,6 +1401,8 @@
         } else if (e.code === "ArrowUp") {
           tryRotate();
         } else if (e.code === "ArrowDown") {
+          if (softDropKeyNeedsNonRepeat && e.repeat) return;
+          softDropKeyNeedsNonRepeat = false;
           softDropHeld = true;
         }
       }
@@ -1405,6 +1416,7 @@
       window.__tetrisNativeKey = function (code) {
         window.__tetrisOnKeyDown({
           code,
+          repeat: false,
           preventDefault() {},
           stopPropagation() {},
         });
@@ -1428,8 +1440,6 @@
           return current && !paused && !gameOver && !bootMenuActive;
         }
 
-        let padState = null;
-
         touchPad.addEventListener("pointerdown", function (e) {
           if (e.button !== 0) return;
           if (!canPlayTouch()) return;
@@ -1444,6 +1454,7 @@
             mode: "undecided",
             refX: e.clientX,
             t: performance.now(),
+            softMutedUntilLift: false,
           };
         });
 
@@ -1456,7 +1467,7 @@
             if (dx * dx + dy * dy < DEADZONE * DEADZONE) return;
             if (Math.abs(dy) >= Math.abs(dx) && dy > 0) {
               padState.mode = "soft";
-              softDropHeld = true;
+              if (!padState.softMutedUntilLift) softDropHeld = true;
             } else if (Math.abs(dx) >= Math.abs(dy)) {
               padState.mode = "horiz";
               padState.refX = e.clientX;
@@ -1466,7 +1477,8 @@
             return;
           }
           if (padState.mode === "soft") {
-            softDropHeld = true;
+            if (padState.softMutedUntilLift) softDropHeld = false;
+            else softDropHeld = true;
           }
           if (padState.mode === "horiz") {
             let d = e.clientX - padState.refX;
