@@ -53,6 +53,9 @@
       --btn-hi: rgba(255, 255, 255, 0.14);
       --outer-pad: 18px;
       --gadget-r: 16px;
+      /** Корпус игры 9:16 (портрет), высота от ширины */
+      --gadget-shell-w: 414px;
+      --gadget-shell-h: calc(var(--gadget-shell-w) * 16 / 9);
       --font-label: Calibri, "Calibri Light", Candara, "Segoe UI", sans-serif;
       --font-lcd: "DSEG7 Classic", "Courier New", "Lucida Console", monospace;
     }
@@ -64,8 +67,8 @@
     /* Встроенное окно (Qt / Py): фиксированный размер, прозрачный фон */
     html.page-embed,
     html.page-embed body {
-      width: 414px;
-      height: 576px;
+      width: var(--gadget-shell-w);
+      height: var(--gadget-shell-h);
       margin: 0;
       overflow: hidden;
       background: transparent !important;
@@ -110,13 +113,67 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    html.page-embed body {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      padding: 0;
+      align-items: stretch;
+      justify-items: stretch;
+    }
+
+    html.page-embed body > .game-root {
+      grid-area: 1 / 1;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    html.page-embed body > .modal {
+      grid-area: 1 / 1;
+      z-index: 10;
+    }
+
+    html.page-browser body {
+      flex-direction: column;
+      min-height: 100dvh;
+      box-sizing: border-box;
+    }
+
+    html.page-browser .game-root {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      width: 100%;
+    }
+
     html.page-browser .gadget {
       cursor: default;
+      width: min(
+        var(--gadget-shell-w),
+        calc((100dvh - 2 * var(--outer-pad)) * 9 / 16),
+        calc(100vw - 2 * var(--outer-pad))
+      );
+      aspect-ratio: 9 / 16;
+      height: auto;
+      max-height: calc(100dvh - 2 * var(--outer-pad));
+      flex: none;
     }
 
     /* Фокус сюда — иначе Chromium/WebEngine забирает стрелки под прокрутку / фокус кнопок */
     .game-root {
       outline: none;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      width: 100%;
+    }
+
+    html.page-embed .game-root {
+      height: 100%;
     }
 
     /* Корпус игры: тёмная панель */
@@ -124,6 +181,8 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
+      flex: 1;
+      min-height: 0;
       gap: 8px;
       padding: 14px 16px;
       background: linear-gradient(155deg, var(--lcd-bg) 0%, var(--lcd-bg-mid) 42%, var(--lcd-deep) 100%);
@@ -175,7 +234,7 @@
     }
 
     .touch-pad {
-      flex: 0 0 auto;
+      flex: 1 1 auto;
       min-height: 88px;
       padding: 8px 10px;
       border-radius: 10px;
@@ -326,6 +385,7 @@
       font-size: 11px;
       font-weight: 700;
       margin-bottom: 6px;
+      text-align: center;
       text-transform: uppercase;
       color: var(--label);
       letter-spacing: 0.06em;
@@ -356,21 +416,23 @@
     .pause-zone {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       width: 100%;
       margin: 0;
       margin-top: auto;
-      padding: 8px 2px 2px;
+      padding: 10px 8px;
       border: none;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       background: transparent;
-      font: inherit;
-      color: inherit;
+      font-family: var(--font-label);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
       cursor: pointer;
       border-radius: 8px;
-      font-variant-numeric: tabular-nums;
-      font-size: 14px;
-      text-align: left;
+      text-align: center;
       -webkit-tap-highlight-color: transparent;
     }
 
@@ -385,27 +447,6 @@
 
     .pause-zone:active {
       background: rgba(0, 0, 0, 0.2);
-    }
-
-    .pause-zone .pause-icon {
-      font-family: var(--font-label);
-      font-size: 17px;
-      letter-spacing: -3px;
-      opacity: 0.85;
-      font-weight: 700;
-      pointer-events: none;
-    }
-
-    .pause-zone:hover .pause-icon {
-      opacity: 1;
-    }
-
-    .pause-zone .lcd-time {
-      font-family: var(--font-lcd);
-      font-weight: 400;
-      font-size: 16px;
-      letter-spacing: 0.04em;
-      pointer-events: none;
     }
 
     .modal {
@@ -550,14 +591,8 @@
         <label>Прошло</label>
         <span class="value stat-time" id="elapsed">00:00</span>
       </div>
-      <button
-        type="button"
-        class="pause-zone"
-        id="pauseZone"
-        aria-label="Пауза: открыть или закрыть меню"
-      >
-        <span class="pause-icon" id="pauseGlyph">‖</span>
-        <span class="lcd-time" id="pausedTime">00:00</span>
+      <button type="button" class="pause-zone" id="pauseZone" aria-label="Пауза">
+        Пауза
       </button>
     </div>
     </div>
@@ -794,7 +829,6 @@
       const levelEl = document.getElementById("level");
       const linesEl = document.getElementById("lines");
       const elapsedEl = document.getElementById("elapsed");
-      const pausedTimeEl = document.getElementById("pausedTime");
       const pauseModal = document.getElementById("pauseModal");
       const gameOverModal = document.getElementById("gameOverModal");
       const btnResume = document.getElementById("btnResume");
@@ -1164,9 +1198,6 @@
         if (now - lastTimeUiMs >= 120) {
           lastTimeUiMs = now;
           elapsedEl.textContent = formatTime(playMs);
-          const pauseDisplay =
-            paused ? totalPausedMs + (now - pauseSessionStart) : totalPausedMs;
-          pausedTimeEl.textContent = formatTime(pauseDisplay);
         }
 
         renderNext();
