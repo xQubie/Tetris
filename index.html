@@ -29,24 +29,28 @@
     }
 
     :root {
-      --lcd-bg: #96a182;
-      --lcd-bg-mid: #8c9878;
-      --lcd-deep: #6f7a5e;
-      --lcd-face: #889674;
-      --cell-empty: rgba(38, 42, 32, 0.4);
-      --cell-line: rgba(55, 62, 48, 0.65);
-      --block: #343b38;
-      --block-lit: #424a46;
-      --block-dark: #252a28;
-      --block-border: rgba(10, 12, 11, 0.5);
-      --block-inset-hi: rgba(255, 255, 255, 0.16);
-      --block-inset-lo: rgba(0, 0, 0, 0.42);
-      --block-hi: #d8dcc8;
-      --ink: #14180f;
-      --label: rgba(20, 24, 15, 0.72);
-      --btn-face: #7d8a6a;
-      --btn-in: rgba(0, 0, 0, 0.38);
-      --btn-hi: rgba(255, 255, 255, 0.22);
+      /* Корпус и панели — тёмный холодный графит, без «зелёного ЖК» */
+      --lcd-bg: #3d4554;
+      --lcd-bg-mid: #343c4c;
+      --lcd-deep: #1e222b;
+      --lcd-face: #2a3140;
+      /* Поле (чуть темнее прежнего светлого) и «стекло» как у тач-пада */
+      --playfield: #d4dae6;
+      --pad-overlay: rgba(0, 0, 0, 0.22);
+      --pad-overlay-border: rgba(255, 255, 255, 0.06);
+      /* Кубики фигур — сталь с лёгким сине-серым */
+      --block: #4a5568;
+      --block-lit: #5d6a80;
+      --block-dark: #384050;
+      --block-border: rgba(0, 0, 0, 0.42);
+      --block-inset-hi: rgba(255, 255, 255, 0.2);
+      --block-inset-lo: rgba(0, 0, 0, 0.48);
+      --block-hi: #9eb0cc;
+      --ink: #e6eaf2;
+      --label: rgba(230, 234, 242, 0.62);
+      --btn-face: #4a5466;
+      --btn-in: rgba(0, 0, 0, 0.48);
+      --btn-hi: rgba(255, 255, 255, 0.14);
       --outer-pad: 18px;
       --gadget-r: 16px;
       --font-label: Calibri, "Calibri Light", Candara, "Segoe UI", sans-serif;
@@ -77,7 +81,7 @@
       margin: 0;
       overflow-x: hidden;
       overflow-y: auto;
-      background: #36393e !important;
+      background: #252830 !important;
     }
 
     @media (max-width: 480px) {
@@ -115,7 +119,7 @@
       outline: none;
     }
 
-    /* «Корпус» приставки: монохромный LCD, без системной рамки вокруг */
+    /* Корпус игры: тёмная панель */
     .gadget {
       display: flex;
       flex-direction: column;
@@ -124,7 +128,7 @@
       padding: 14px 16px;
       background: linear-gradient(155deg, var(--lcd-bg) 0%, var(--lcd-bg-mid) 42%, var(--lcd-deep) 100%);
       border-radius: var(--gadget-r);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(120, 160, 220, 0.14);
       box-shadow:
         inset 0 1px 0 var(--btn-hi),
         inset 0 -4px 14px var(--btn-in),
@@ -152,11 +156,9 @@
       position: relative;
       flex: 0 0 auto;
       padding: 6px;
-      background: var(--lcd-deep);
+      background: var(--pad-overlay);
+      border: 1px solid var(--pad-overlay-border);
       border-radius: 10px;
-      box-shadow:
-        inset 0 3px 12px var(--btn-in),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
     /* Прозрачный слой над полем: не даёт таскать окно по сетке (exe). Поворот — на тач-паде */
@@ -177,8 +179,8 @@
       min-height: 88px;
       padding: 8px 10px;
       border-radius: 10px;
-      background: rgba(45, 52, 38, 0.42);
-      border: 1px solid rgba(0, 0, 0, 0.14);
+      background: var(--pad-overlay);
+      border: 1px solid var(--pad-overlay-border);
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -210,21 +212,26 @@
       z-index: 2;
     }
 
-    .piece-block {
-      position: absolute;
-      box-sizing: border-box;
+    /* Один рельеф для падающей фигуры, упавших клеток и превью «Далее» */
+    .piece-block,
+    .board .cell.filled,
+    .next-grid .ncell.on {
       background: linear-gradient(
         152deg,
         var(--block-lit) 0%,
         var(--block) 42%,
         var(--block-dark) 100%
       );
-      border: 1px solid rgba(0, 0, 0, 0.3);
-      border-radius: 2px;
       box-shadow:
         inset 1px 1px 0 var(--block-inset-hi),
-        inset -1px -1px 0 var(--block-inset-lo),
-        0 1px 2px rgba(0, 0, 0, 0.22);
+        inset -1px -1px 0 var(--block-inset-lo);
+    }
+
+    .piece-block {
+      position: absolute;
+      box-sizing: border-box;
+      border: none;
+      border-radius: 0;
     }
 
     .board {
@@ -234,45 +241,23 @@
       width: 200px;
       height: 400px;
       gap: 0;
-      background: var(--lcd-deep);
+      background: var(--playfield);
+      border-radius: 4px;
+      overflow: hidden;
     }
 
-    .cell {
+    .board .cell {
       position: relative;
       box-sizing: border-box;
       width: 20px;
       height: 20px;
       margin: 0;
       padding: 0;
-      background: var(--cell-empty);
+      background: transparent;
       border: none;
-      border-right: 1px solid var(--cell-line);
-      border-bottom: 1px solid var(--cell-line);
     }
 
-    .board .cell:nth-child(10n) {
-      border-right: none;
-    }
-
-    .board .cell:nth-child(n + 191) {
-      border-bottom: none;
-    }
-
-    .cell.filled {
-      background: linear-gradient(
-        152deg,
-        var(--block-lit) 0%,
-        var(--block) 42%,
-        var(--block-dark) 100%
-      );
-      border-right-color: var(--block-border);
-      border-bottom-color: var(--block-border);
-      box-shadow:
-        inset 1px 1px 0 var(--block-inset-hi),
-        inset -1px -1px 0 var(--block-inset-lo);
-    }
-
-    .cell.filled.line-clearing {
+    .board .cell.filled.line-clearing {
       box-shadow:
         inset 1px 1px 0 rgba(255, 255, 255, 0.1),
         inset -1px -1px 0 rgba(0, 0, 0, 0.32),
@@ -354,7 +339,9 @@
       height: 36px;
       gap: 0;
       margin: 0 auto;
-      background: rgba(35, 40, 30, 0.35);
+      background: var(--playfield);
+      border-radius: 4px;
+      overflow: hidden;
     }
 
     .next-grid .ncell {
@@ -363,31 +350,7 @@
       height: 18px;
       background: transparent;
       border: none;
-      border-right: 1px solid var(--cell-line);
-      border-bottom: 1px solid var(--cell-line);
       position: relative;
-    }
-
-    .next-grid .ncell:nth-child(4n) {
-      border-right: none;
-    }
-
-    .next-grid .ncell:nth-child(n + 5) {
-      border-bottom: none;
-    }
-
-    .next-grid .ncell.on {
-      background: linear-gradient(
-        152deg,
-        var(--block-lit) 0%,
-        var(--block) 42%,
-        var(--block-dark) 100%
-      );
-      border-right-color: var(--block-border);
-      border-bottom-color: var(--block-border);
-      box-shadow:
-        inset 1px 1px 0 var(--block-inset-hi),
-        inset -1px -1px 0 var(--block-inset-lo);
     }
 
     .pause-zone {
@@ -399,7 +362,7 @@
       margin-top: auto;
       padding: 8px 2px 2px;
       border: none;
-      border-top: 1px solid rgba(0, 0, 0, 0.14);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
       background: transparent;
       font: inherit;
       color: inherit;
@@ -412,16 +375,16 @@
     }
 
     .pause-zone:hover {
-      background: rgba(0, 0, 0, 0.06);
+      background: rgba(255, 255, 255, 0.06);
     }
 
     .pause-zone:focus-visible {
-      outline: 2px solid rgba(255, 255, 255, 0.35);
+      outline: 2px solid rgba(130, 170, 240, 0.45);
       outline-offset: 1px;
     }
 
     .pause-zone:active {
-      background: rgba(0, 0, 0, 0.1);
+      background: rgba(0, 0, 0, 0.2);
     }
 
     .pause-zone .pause-icon {
@@ -452,7 +415,7 @@
       align-items: center;
       justify-content: center;
       z-index: 10;
-      background: rgba(25, 28, 22, 0.52);
+      background: rgba(10, 12, 18, 0.62);
       padding: 20px;
       border-radius: var(--outer-pad);
       pointer-events: none;
@@ -468,11 +431,11 @@
       padding: 18px 16px 16px;
       background: linear-gradient(165deg, var(--lcd-bg) 0%, var(--lcd-face) 100%);
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(130, 160, 210, 0.12);
       box-shadow:
         inset 0 1px 0 var(--btn-hi),
         inset 0 -3px 10px var(--btn-in),
-        0 8px 24px rgba(0, 0, 0, 0.4);
+        0 8px 24px rgba(0, 0, 0, 0.5);
       pointer-events: auto;
     }
 
