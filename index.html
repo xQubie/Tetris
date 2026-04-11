@@ -331,7 +331,7 @@
       display: grid;
       grid-template-columns: 46px 46px;
       grid-template-rows: 46px 46px;
-      column-gap: 28px;
+      column-gap: 40px;
       row-gap: 10px;
       justify-content: center;
       align-content: center;
@@ -642,10 +642,133 @@
       border-radius: 8px;
       text-align: center;
       -webkit-tap-highlight-color: transparent;
+      transition:
+        background 0.08s ease,
+        box-shadow 0.08s ease,
+        transform 0.08s ease,
+        filter 0.08s ease;
     }
 
-    .pause-zone:hover {
-      background: rgba(255, 255, 255, 0.06);
+    .pause-zone__orb {
+      display: none;
+      flex-shrink: 0;
+    }
+
+    .pause-zone__label {
+      pointer-events: none;
+    }
+
+    .gadget[data-controls="gestures"] .pause-zone {
+      flex-direction: row;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 10px 12px;
+      margin-top: auto;
+      background: linear-gradient(
+        168deg,
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(36, 40, 52, 0.4) 52%,
+        rgba(14, 16, 22, 0.26) 100%
+      );
+      box-shadow:
+        inset 0 1px 3px rgba(255, 255, 255, 0.1),
+        inset 0 -2px 6px rgba(0, 0, 0, 0.28),
+        0 2px 0 rgba(0, 0, 0, 0.14);
+    }
+
+    .gadget[data-controls="gestures"] .pause-zone:hover {
+      background: linear-gradient(
+        168deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(40, 44, 56, 0.48) 52%,
+        rgba(16, 18, 24, 0.3) 100%
+      );
+      filter: brightness(1.02);
+    }
+
+    .gadget[data-controls="gestures"] .pause-zone:active {
+      transform: translateY(1px);
+      background: linear-gradient(
+        168deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(26, 28, 36, 0.52) 100%
+      );
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 1px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone {
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: fit-content;
+      max-width: 100%;
+      align-self: center;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 6px 0 4px;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      pointer-events: none;
+      cursor: default;
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone__orb {
+      display: block;
+      width: 15px;
+      height: 15px;
+      pointer-events: auto;
+      cursor: pointer;
+      border-radius: 50%;
+      border: 1px solid rgba(35, 30, 10, 0.45);
+      box-sizing: border-box;
+      background: linear-gradient(
+        165deg,
+        #fff59a 0%,
+        #f5e01a 42%,
+        #d4b800 100%
+      );
+      box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 3px rgba(0, 0, 0, 0.18),
+        0 2px 0 rgba(0, 0, 0, 0.2);
+      transition:
+        transform 0.09s ease,
+        filter 0.09s ease,
+        box-shadow 0.09s ease;
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone__label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--label);
+      opacity: 0.9;
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone:hover {
+      background: transparent;
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone:hover .pause-zone__orb {
+      filter: brightness(1.05);
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone:active {
+      background: transparent;
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone:active .pause-zone__orb {
+      transform: scale(0.9);
+      filter: brightness(0.94);
+      box-shadow:
+        inset 0 3px 10px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        0 1px 0 rgba(0, 0, 0, 0.15);
     }
 
     .pause-zone:focus-visible {
@@ -653,8 +776,13 @@
       outline-offset: 1px;
     }
 
-    .pause-zone:active {
-      background: rgba(0, 0, 0, 0.2);
+    .gadget[data-controls="buttons"] .pause-zone:focus-visible {
+      outline: none;
+    }
+
+    .gadget[data-controls="buttons"] .pause-zone:focus-visible .pause-zone__orb {
+      outline: 2px solid rgba(130, 170, 240, 0.5);
+      outline-offset: 2px;
     }
 
     .modal {
@@ -779,7 +907,7 @@
 </head>
 <body>
   <div id="gameRoot" class="game-root" tabindex="-1">
-  <div class="gadget" id="gadget">
+  <div class="gadget" id="gadget" data-controls="gestures">
     <div class="gadget-row">
     <div class="board-wrap">
       <div class="board" id="board" aria-hidden="true"></div>
@@ -813,7 +941,8 @@
         <span class="value stat-time" id="elapsed">00:00</span>
       </div>
       <button type="button" class="pause-zone" id="pauseZone" aria-label="Пауза">
-        Пауза
+        <span class="pause-zone__orb" aria-hidden="true"></span>
+        <span class="pause-zone__label">Пауза</span>
       </button>
     </div>
     </div>
@@ -1747,11 +1876,13 @@
 
       function applyControlMode() {
         const dock = document.getElementById("touchDock");
+        const gadget = document.getElementById("gadget");
         const pad = document.getElementById("touchPad");
         const btns = document.getElementById("touchPadButtons");
         if (!pad || !btns) return;
         const gestures = controlMode === "gestures";
         if (dock) dock.dataset.mode = controlMode;
+        if (gadget) gadget.dataset.controls = controlMode;
         pad.hidden = !gestures;
         btns.hidden = gestures;
         pad.setAttribute("aria-hidden", gestures ? "false" : "true");
