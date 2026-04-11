@@ -125,7 +125,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
-    /* Тап по полю — поворот (Telegram / тач). Поверх сетки, под курсором для exe */
+    /* Прозрачный слой над полем: не даёт таскать окно по сетке (exe). Поворот — на тач-паде */
     .board-touch {
       position: absolute;
       left: 6px;
@@ -500,7 +500,7 @@
     </div>
     </div>
     <div class="touch-pad" id="touchPad">
-      <span class="touch-hint">Поле: тап — поворот<br />Низ: ведите ↔ влево/вправо, ↓ удерживайте для ускорения</span>
+      <span class="touch-hint">Низ: короткий тап — поворот<br />ведите ↔ влево/вправо, ↓ удерживайте для ускорения</span>
     </div>
   </div>
   </div>
@@ -530,6 +530,8 @@
       const LINES_PER_LEVEL = 10;
       const STORAGE_KEY = "tetris_lcd_best_v1";
       const CELL_PX = 20;
+      /** Минимальный интервал между строками при зажатом ускорении (↓ / тач-пад). Меньше — быстрее soft drop. */
+      const SOFT_DROP_INTERVAL_MS = 28;
       const PIECE_BLOCK_COUNT = 4;
 
       function setupWindowDrag() {
@@ -754,7 +756,7 @@
 
       function dropIntervalMs() {
         const base = Math.max(80, 1000 - (level - 1) * 75);
-        if (softDropHeld) return Math.min(base, 52);
+        if (softDropHeld) return Math.min(base, SOFT_DROP_INTERVAL_MS);
         return base;
       }
 
@@ -938,6 +940,8 @@
             toRow: current.row + 1,
             start: performance.now(),
             duration: dur,
+            /** ease-out на обычном падении хорошо скрывает шаг; при soft drop на 120+ Гц вторая половина шага выглядит как «просадка FPS» — держим линейно. */
+            linear: softDropHeld,
           };
         } else {
           mergePiece();
@@ -972,7 +976,9 @@
         let drawRow = current.row;
         if (fallAnim) {
           const t = Math.min(1, (now - fallAnim.start) / fallAnim.duration);
-          const e = 1 - Math.pow(1 - t, 2.6);
+          const e = fallAnim.linear
+            ? t
+            : 1 - Math.pow(1 - t, 2.6);
           drawRow =
             fallAnim.fromRow + (fallAnim.toRow - fallAnim.fromRow) * e;
         }
@@ -1338,7 +1344,6 @@
         }
 
         let padState = null;
-        let boardTap = null;
 
         touchPad.addEventListener("pointerdown", function (e) {
           if (e.button !== 0) return;
@@ -1353,6 +1358,7 @@
             sy: e.clientY,
             mode: "undecided",
             refX: e.clientX,
+            t: performance.now(),
           };
         });
 
@@ -1394,49 +1400,22 @@
 
         function endPad(e) {
           if (!padState || padState.id !== e.pointerId) return;
+          const ended = padState;
           padState = null;
           softDropHeld = false;
           try {
             touchPad.releasePointerCapture(e.pointerId);
           } catch (_) {}
+          if (
+            ended.mode === "undecided" &&
+            canPlayTouch() &&
+            performance.now() - ended.t < 480
+          ) {
+            tryRotate();
+          }
         }
         touchPad.addEventListener("pointerup", endPad);
         touchPad.addEventListener("pointercancel", endPad);
-
-        boardTouch.addEventListener("pointerdown", function (e) {
-          if (e.button !== 0) return;
-          if (!canPlayTouch()) return;
-          e.preventDefault();
-          try {
-            boardTouch.setPointerCapture(e.pointerId);
-          } catch (_) {}
-          boardTap = {
-            id: e.pointerId,
-            sx: e.clientX,
-            sy: e.clientY,
-            t: performance.now(),
-            moved: false,
-          };
-        });
-        boardTouch.addEventListener("pointermove", function (e) {
-          if (!boardTap || boardTap.id !== e.pointerId) return;
-          const dx = e.clientX - boardTap.sx;
-          const dy = e.clientY - boardTap.sy;
-          if (dx * dx + dy * dy > 120) boardTap.moved = true;
-        });
-        function endBoardTap(e) {
-          if (!boardTap || boardTap.id !== e.pointerId) return;
-          const dt = performance.now() - boardTap.t;
-          const moved = boardTap.moved;
-          boardTap = null;
-          try {
-            boardTouch.releasePointerCapture(e.pointerId);
-          } catch (_) {}
-          if (moved || !canPlayTouch()) return;
-          if (dt < 480) tryRotate();
-        }
-        boardTouch.addEventListener("pointerup", endBoardTap);
-        boardTouch.addEventListener("pointercancel", endBoardTap);
       }
 
       setupTouchControls();
