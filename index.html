@@ -128,8 +128,31 @@
       font-family: var(--font-label);
       font-weight: 700;
       color: var(--ink);
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
       user-select: none;
       -webkit-font-smoothing: antialiased;
+    }
+
+    /* Браузер: не даём выделять подписи/цифры при кликах и перетаскивании */
+    html.page-browser {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html.page-browser * {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    html.page-browser ::selection {
+      background: transparent;
     }
 
     html.page-embed body {
